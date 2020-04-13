@@ -163,7 +163,7 @@ module Streamly.Internal.Prelude
     -- finding subsequences
     , isPrefixOf
     , isSuffixOf
-    , isInfixOf
+--    , isInfixOf
     , isSubsequenceOf
 
     -- trimming sequences
@@ -290,9 +290,9 @@ module Streamly.Internal.Prelude
 
     -- Nary
     , chunksOf
-    , chunksOf2
+--    , chunksOf2
     , arraysOf
-    , intervalsOf
+--    , intervalsOf
 
     -- ** Searching
     -- -- *** Searching Elements
@@ -540,7 +540,8 @@ import qualified Prelude
 import qualified System.IO as IO
 
 import Streamly.Internal.Data.Stream.Enumeration (Enumerable(..), enumerate, enumerateTo)
-import Streamly.Internal.Data.Fold.Types (Fold (..), Fold2 (..))
+-- import Streamly.Internal.Data.Fold.Types (Fold (..), Fold2 (..))
+import Streamly.Internal.Data.Fold.Types (Fold (..))
 import Streamly.Internal.Data.Parser (Parser (..))
 import Streamly.Internal.Data.Unfold.Types (Unfold)
 import Streamly.Internal.Memory.Array.Types (Array, writeNUnsafe)
@@ -1576,7 +1577,7 @@ isPrefixOf m1 m2 = D.isPrefixOf (toStreamD m1) (toStreamD m2)
 {-# INLINE isSuffixOf #-}
 isSuffixOf :: (Monad m, Eq a) => SerialT m a -> SerialT m a -> m Bool
 isSuffixOf suffix stream = isPrefixOf (reverse suffix) (reverse stream)
-
+{-
 -- | Returns 'True' if the first stream is an infix of the second. A stream is
 -- considered an infix of itself.
 --
@@ -1599,7 +1600,7 @@ isInfixOf infx stream = do
     -- XXX can use breakOnSeq instead (when available)
     r <- null $ drop 1 $ splitOnSeq arr FL.drain stream
     return (not r)
-
+-}
 -- | Returns 'True' if all the elements of the first stream occur, in order, in
 -- the second stream. The elements do not have to occur consecutively. A stream
 -- is a subsequence of itself.
@@ -3229,7 +3230,7 @@ chunksOf
     :: (IsStream t, Monad m)
     => Int -> Fold m a b -> t m a -> t m b
 chunksOf n f m = D.fromStreamD $ D.groupsOf n f (D.toStreamD m)
-
+{-
 -- |
 --
 -- /Internal/
@@ -3238,7 +3239,7 @@ chunksOf2
     :: (IsStream t, Monad m)
     => Int -> m c -> Fold2 m c a b -> t m a -> t m b
 chunksOf2 n action f m = D.fromStreamD $ D.groupsOf2 n action f (D.toStreamD m)
-
+-}
 -- | @arraysOf n stream@ groups the elements in the input stream into arrays of
 -- @n@ elements each.
 --
@@ -3251,7 +3252,7 @@ chunksOf2 n action f m = D.fromStreamD $ D.groupsOf2 n action f (D.toStreamD m)
 arraysOf :: (IsStream t, MonadIO m, Storable a)
     => Int -> t m a -> t m (Array a)
 arraysOf n = chunksOf n (writeNUnsafe n)
-
+{-
 -- XXX we can implement this by repeatedly applying the 'lrunFor' fold.
 -- XXX add this example after fixing the serial stream rate control
 -- >>> S.toList $ S.take 5 $ intervalsOf 1 FL.sum $ constRate 2 $ S.enumerateFrom 1
@@ -3268,7 +3269,7 @@ intervalsOf
 intervalsOf n f xs =
     splitWithSuffix isNothing (FL.lcatMaybes f)
         (interjectSuffix n (return Nothing) (Serial.map Just xs))
-
+-}
 ------------------------------------------------------------------------------
 -- N-ary APIs
 ------------------------------------------------------------------------------
