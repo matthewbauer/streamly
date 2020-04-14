@@ -416,7 +416,8 @@ alt (Parser stepL initialL extractL) (Parser stepR initialR extractR) =
 --
 {-# INLINE splitMany #-}
 splitMany :: MonadCatch m => Fold m b c -> Parser m a b -> Parser m a c
-splitMany (Fold fstep finitial fextract) (Parser step1 initial1 extract1) =
+splitMany (Fold fstep finitial fextract) (Parser step1 initial1 extract1) = undefined
+{-
     Parser step initial extract
 
     where
@@ -450,6 +451,7 @@ splitMany (Fold fstep finitial fextract) (Parser step1 initial1 extract1) =
         case r of
             Left (_ :: ParseError) -> fextract fs
             Right b -> fstep fs b >>= fextract
+-}
 
 -- | See documentation of 'Streamly.Internal.Data.Parser.some'.
 --
@@ -457,7 +459,8 @@ splitMany (Fold fstep finitial fextract) (Parser step1 initial1 extract1) =
 --
 {-# INLINE splitSome #-}
 splitSome :: MonadCatch m => Fold m b c -> Parser m a b -> Parser m a c
-splitSome (Fold fstep finitial fextract) (Parser step1 initial1 extract1) =
+splitSome (Fold fstep finitial fextract) (Parser step1 initial1 extract1) = undefined
+{-
     Parser step initial extract
 
     where
@@ -506,6 +509,7 @@ splitSome (Fold fstep finitial fextract) (Parser step1 initial1 extract1) =
         case r of
             Left (_ :: ParseError) -> fextract fs
             Right b -> fstep fs b >>= fextract
+-}
 
 -- | See 'Streamly.Internal.Data.Parser.die'.
 --
