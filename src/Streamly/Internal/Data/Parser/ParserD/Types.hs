@@ -123,8 +123,8 @@ module Streamly.Internal.Data.Parser.ParserD.Types
 
     , die
     , dieM
-    , splitSome
-    , splitMany
+--    , splitSome
+--    , splitMany
     , alt
     , concatMap
     )
@@ -133,13 +133,14 @@ where
 import Control.Applicative (Alternative(..))
 import Control.Exception (assert, Exception(..))
 import Control.Monad (MonadPlus(..))
-import Control.Monad.Catch (MonadCatch, try, throwM, MonadThrow)
+import Control.Monad.Catch (MonadCatch, throwM, MonadThrow)
+-- import Control.Monad.Catch (MonadCatch, try, throwM, MonadThrow)
+
 import Prelude hiding (concatMap)
 
 import Fusion.Plugin.Types (Fuse(..))
 -- import Streamly.Internal.Data.Fold (Fold(..), toList)
-import Streamly.Internal.Data.Fold (Fold(..))
-import Streamly.Internal.Data.Strict (Tuple3'(..))
+-- import Streamly.Internal.Data.Strict (Tuple3'(..))
 
 -- | The return type of a 'Parser' step.
 --
@@ -409,7 +410,7 @@ alt (Parser stepL initialL extractL) (Parser stepR initialR extractR) =
 
     extract (AltParseR sR) = extractR sR
     extract (AltParseL _ sL) = extractL sL
-
+{-
 -- | See documentation of 'Streamly.Internal.Data.Parser.many'.
 --
 -- /Internal/
@@ -417,7 +418,6 @@ alt (Parser stepL initialL extractL) (Parser stepR initialR extractR) =
 {-# INLINE splitMany #-}
 splitMany :: MonadCatch m => Fold m b c -> Parser m a b -> Parser m a c
 splitMany (Fold fstep finitial fextract) (Parser step1 initial1 extract1) = undefined
-{-
     Parser step initial extract
 
     where
@@ -451,7 +451,6 @@ splitMany (Fold fstep finitial fextract) (Parser step1 initial1 extract1) = unde
         case r of
             Left (_ :: ParseError) -> fextract fs
             Right b -> fstep fs b >>= fextract
--}
 
 -- | See documentation of 'Streamly.Internal.Data.Parser.some'.
 --
@@ -460,7 +459,6 @@ splitMany (Fold fstep finitial fextract) (Parser step1 initial1 extract1) = unde
 {-# INLINE splitSome #-}
 splitSome :: MonadCatch m => Fold m b c -> Parser m a b -> Parser m a c
 splitSome (Fold fstep finitial fextract) (Parser step1 initial1 extract1) = undefined
-{-
     Parser step initial extract
 
     where
@@ -510,6 +508,7 @@ splitSome (Fold fstep finitial fextract) (Parser step1 initial1 extract1) = unde
             Left (_ :: ParseError) -> fextract fs
             Right b -> fstep fs b >>= fextract
 -}
+
 
 -- | See 'Streamly.Internal.Data.Parser.die'.
 --
