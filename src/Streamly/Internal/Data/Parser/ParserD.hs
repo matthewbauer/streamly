@@ -22,10 +22,9 @@ module Streamly.Internal.Data.Parser.ParserD
 
     -- First order parsers
     -- * Accumulators
---    , fromFold
+    , fromFold
     , toParserK
     , fromParserK
-{-
     , any
     , all
     , yield
@@ -160,7 +159,6 @@ module Streamly.Internal.Data.Parser.ParserD
     -- , retryMax    -- try N times
     -- , retryUntil  -- try until successful
     -- , retryUntilN -- try until successful n times
--}
     )
 where
 
@@ -169,15 +167,16 @@ import Control.Monad.Catch (MonadCatch, MonadThrow(..))
 import Prelude
        hiding (any, all, take, takeWhile, sequence, concatMap)
 
-import Streamly.Internal.Data.Fold.Types (Fold(..))
+import Streamly.Internal.Data.Fold.Types (Fold(..), initialTSM, stepWS, doneWS)
 
 import qualified Streamly.Internal.Data.Parser.ParserK.Types as K
 import qualified Streamly.Internal.Data.Zipper as Z
+import qualified Streamly.Internal.Data.Fold.Types as FL
 
 import Streamly.Internal.Data.Parser.ParserD.Tee
 import Streamly.Internal.Data.Parser.ParserD.Types
 import Streamly.Internal.Data.Strict
-{-
+
 -------------------------------------------------------------------------------
 -- Upgrade folds to parses
 -------------------------------------------------------------------------------
@@ -192,12 +191,17 @@ fromFold (Fold fstep finitial fextract) = Parser step finitial fextract
 
     where
 
-    step s a = Yield 0 <$> fstep s a
+    step s a = do
+        res <- fstep s a
+        case res of
+            FL.Yield s1 -> return $ Yield 0 s1
+            FL.Stop b -> return $ Stop 0 b
+
 
 -------------------------------------------------------------------------------
 -- Convert to and from CPS style parser representation
 -------------------------------------------------------------------------------
--}
+
 -- | Convert a direct style 'Parser' to a CPS style 'K.Parser'.
 --
 -- /Internal/
@@ -222,7 +226,6 @@ fromParserK _ = Parser step initial extract
     step () _ = error "fromParserK: unimplemented"
     extract () = error "fromParserK: unimplemented"
 
-{-
 #ifndef DISABLE_FUSION
 {-# RULES "fromParserK/toParserK fusion" [2]
     forall s. toParserK (fromParserK s) = s #-}
@@ -331,19 +334,19 @@ satisfy predicate = Parser step initial extract
 take :: Monad m => Int -> Fold m a b -> Parser m a b
 take n (Fold fstep finitial fextract) = Parser step initial extract
 
-    where
+     where
 
-    initial = Tuple' 0 <$> finitial
+    initial = Tuple' 0 <$> initialTSM finitial
 
     step (Tuple' i r) a = do
-        res <- fstep r a
+        res <- stepWS fstep r a
         let i1 = i + 1
             s1 = Tuple' i1 res
         if i1 < n
         then return $ Yield 0 s1
-        else Stop 0 <$> fextract res
+        else Stop 0 <$> doneWS fextract res
 
-    extract (Tuple' _ r) = fextract r
+    extract (Tuple' _ r) = doneWS fextract r
 
 -- | See 'Streamly.Internal.Data.Parser.takeEQ'.
 --
@@ -355,17 +358,17 @@ takeEQ n (Fold fstep finitial fextract) = Parser step initial extract
 
     where
 
-    initial = Tuple' 0 <$> finitial
+    initial = Tuple' 0 <$> initialTSM finitial
 
     step (Tuple' i r) a = do
-        res <- fstep r a
+        res <- stepWS fstep r a
         let i1 = i + 1
             s1 = Tuple' i1 res
-        if i1 < n then return (Skip 0 s1) else Stop 0 <$> fextract res
+        if i1 < n then return (Skip 0 s1) else Stop 0 <$> doneWS fextract res
 
     extract (Tuple' i r) =
         if n == i
-        then fextract r
+        then doneWS fextract r
         else throwM $ ParseError err
 
         where
@@ -384,10 +387,10 @@ takeGE n (Fold fstep finitial fextract) = Parser step initial extract
 
     where
 
-    initial = Tuple' 0 <$> finitial
+    initial = Tuple' 0 <$> initialTSM finitial
 
     step (Tuple' i r) a = do
-        res <- fstep r a
+        res <- stepWS fstep r a
         let i1 = i + 1
             s1 = Tuple' i1 res
         return $
@@ -395,7 +398,7 @@ takeGE n (Fold fstep finitial fextract) = Parser step initial extract
             then Skip 0 s1
             else Yield 0 s1
 
-    extract (Tuple' i r) = fextract r >>= f
+    extract (Tuple' i r) = doneWS fextract r >>= f
 
         where
 
@@ -415,16 +418,16 @@ takeGE n (Fold fstep finitial fextract) = Parser step initial extract
 {-# INLINE takeWhile #-}
 takeWhile :: Monad m => (a -> Bool) -> Fold m a b -> Parser m a b
 takeWhile predicate (Fold fstep finitial fextract) =
-    Parser step initial fextract
+    Parser step initial (doneWS fextract)
 
     where
 
-    initial = finitial
+    initial = initialTSM finitial
 
     step s a =
         if predicate a
-        then Yield 0 <$> fstep s a
-        else Stop 1 <$> fextract s
+        then Yield 0 <$> stepWS fstep s a
+        else Stop 1 <$> doneWS fextract s
 
 -- | See 'Streamly.Internal.Data.Parser.takeWhile1'.
 --
@@ -449,14 +452,14 @@ takeWhile1 predicate (Fold fstep finitial fextract) =
     step (Just s) a =
         if predicate a
         then do
-            r <- fstep s a
+            r <- stepWS fstep s a
             return $ Yield 0 (Just r)
         else do
-            b <- fextract s
+            b <- doneWS fextract s
             return $ Stop 1 b
 
     extract Nothing = throwM $ ParseError "takeWhile1: end of input"
-    extract (Just s) = fextract s
+    extract (Just s) = doneWS fextract s
 
 -- | See 'Streamly.Internal.Data.Parser.sliceSepBy'.
 --
@@ -465,15 +468,15 @@ takeWhile1 predicate (Fold fstep finitial fextract) =
 {-# INLINABLE sliceSepBy #-}
 sliceSepBy :: Monad m => (a -> Bool) -> Fold m a b -> Parser m a b
 sliceSepBy predicate (Fold fstep finitial fextract) =
-    Parser step initial fextract
+    Parser step initial (doneWS fextract)
 
     where
 
-    initial = finitial
+    initial = initialTSM finitial
     step s a =
         if not (predicate a)
-        then Yield 0 <$> fstep s a
-        else Stop 0 <$> fextract s
+        then Yield 0 <$> stepWS fstep s a
+        else Stop 0 <$> doneWS fextract s
 
 -- | See 'Streamly.Internal.Data.Parser.sliceEndWith'.
 --
@@ -507,17 +510,17 @@ sliceSepByMax predicate cnt (Fold fstep finitial fextract) =
 
     where
 
-    initial = Tuple' 0 <$> finitial
+    initial = Tuple' 0 <$> initialTSM finitial
     step (Tuple' i r) a = do
-        res <- fstep r a
+        res <- stepWS fstep r a
         let i1 = i + 1
             s1 = Tuple' i1 res
         if not (predicate a) && i1 < cnt
         then return $ Yield 0 s1
         else do
-            b <- fextract res
+            b <- doneWS fextract res
             return $ Stop 0 b
-    extract (Tuple' _ r) = fextract r
+    extract (Tuple' _ r) = doneWS fextract r
 
 -- | See 'Streamly.Internal.Data.Parser.wordBy'.
 --
@@ -706,7 +709,7 @@ manyTill (Fold fstep finitial fextract)
     where
 
     initial = do
-        fs <- finitial
+        fs <- initialTSM finitial
         ManyTillR 0 fs <$> initialR
 
     step (ManyTillR cnt fs st) a = do
@@ -717,7 +720,7 @@ manyTill (Fold fstep finitial fextract)
                 assert (cnt + 1 - n >= 0) (return ())
                 return $ Skip n (ManyTillR (cnt + 1 - n) fs s)
             Stop n _ -> do
-                b <- fextract fs
+                b <- doneWS fextract fs
                 return $ Stop n b
             Error _ -> do
                 rR <- initialL
@@ -729,13 +732,12 @@ manyTill (Fold fstep finitial fextract)
             Yield n s -> return $ Yield n (ManyTillL fs s)
             Skip n s -> return $ Skip n (ManyTillL fs s)
             Stop n b -> do
-                fs1 <- fstep fs b
+                fs1 <- stepWS fstep fs b
                 l <- initialR
                 -- XXX we need a yield with backtrack here
                 -- return $ Yield n (ManyTillR 0 fs1 l)
                 return $ Skip n (ManyTillR 0 fs1 l)
             Error err -> return $ Error err
 
-    extract (ManyTillL fs sR) = extractL sR >>= fstep fs >>= fextract
-    extract (ManyTillR _ fs _) = fextract fs
--}
+    extract (ManyTillL fs sR) = extractL sR >>= stepWS fstep fs >>= doneWS fextract
+    extract (ManyTillR _ fs _) = doneWS fextract fs
