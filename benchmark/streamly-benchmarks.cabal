@@ -446,6 +446,7 @@ benchmark prim-array
   hs-source-dirs: .
   main-is: Streamly/Benchmark/Data/Prim/Array.hs
   other-modules: Streamly.Benchmark.Data.Prim.ArrayOps
+  build-depends: primitive
 
 benchmark small-array
   import: bench-options
